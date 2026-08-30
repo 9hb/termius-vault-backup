@@ -1,6 +1,6 @@
 [package]
 name = "termius-vault-backup"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "CLI to decrypt & export Termius vaults directly into standard OpenSSH config and PEM keys"
 authors = ["9hb"]
