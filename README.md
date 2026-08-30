@@ -1,83 +1,106 @@
 # termius-vault-backup
 
-> **CLI to decrypt & export Termius vaults directly into standard OpenSSH config and PEM keys.**
+A standalone Rust utility to decrypt and export Termius local storage databases directly into OpenSSH configuration files, PEM private keys, and structured JSON/CSV records.
 
-`termius-vault-backup` is a high-performance, standalone Rust tool that extracts, decrypts, and packages your Termius vault directly from local storage (IndexedDB/LevelDB) into standard formats without relying on external cloud endpoints.
+```text
+┌─────────────────────────┐
+│   Termius Local Data    │ (IndexedDB / LevelDB storage)
+└────────────┬────────────┘
+             │
+             │ secretbox (XSalsa20-Poly1305)
+             ▼
+┌─────────────────────────┐
+│  termius-vault-backup   │ <─── OS Keyring / Master Key
+└────────────┬────────────┘
+             │
+             ├───> ~/.ssh/config + hosts.csv
+             ├───> keys/*.pem (chmod 600) + keys/*.pub
+             └───> raw/*.json (hosts, snippets, tunnels)
+```
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔐 **Zero-Config Decryption**: Automatically retrieves decryption keys from the OS Keyring (GNOME SecretStorage / Keytar).
-- 🔑 **Complete Key Extraction**: Decrypts and normalizes private keys into `.pem` / `id_rsa` / `id_ed25519` files with proper UNIX permissions (`chmod 600`).
-- 🖥️ **OpenSSH Compatibility**: Generates standard `~/.ssh/config` mappings (hosts, ports, users, proxy jumps, and identity files).
-- 📊 **CSV & Raw JSON Export**: Full summary table in `hosts.csv` plus raw decrypted JSON backups for hosts, keys, snippets, identities, and tunnel forwardings.
-- 📦 **Portable Package**: Creates a standalone `.tar.gz` archive containing the entire decoupled configuration.
+- **Direct Storage Decryption**: Reads directly from LevelDB/IndexedDB data files used by Flatpak and native Termius desktop clients.
+- **Keyring Integration**: Automatically retrieves the local secret key from Linux SecretStorage (GNOME Keyring).
+- **OpenSSH Generation**: Produces a valid `~/.ssh/config` mapping host aliases, hostnames, ports, usernames, and identity keys.
+- **Private Key Extraction**: Exports decrypted private keys into standard PEM blocks with restricted UNIX permissions (`0600`).
+- **Comprehensive Metadata**: Extracts snippets, saved tunnels (port forwardings), identities, and host tags into CSV and JSON formats.
+- **Offline & Private**: Operates entirely locally with zero telemetry or network calls.
 
 ---
 
-## 🚀 Installation & Build
+## Installation
+
+### Prerequisites
+
+- Rust toolchain (`cargo`, `rustc` 1.80+)
+
+### Build from source
 
 ```bash
-git clone https://github.com/your-username/termius-vault-backup.git
+git clone https://github.com/9hb/termius-vault-backup.git
 cd termius-vault-backup
 cargo build --release
-cp target/release/termius-vault-backup ~/.local/bin/
+install -Dm755 target/release/termius-vault-backup ~/.local/bin/termius-vault-backup
 ```
 
 ---
 
-## 🛠️ Usage
+## Usage
 
-### 1. Automatic Local Extraction (Zero-Config)
-Reads directly from local Flatpak or Native Termius storage and auto-fetches the master key from the OS keyring:
+### 1. Automatic extraction (recommended)
+
+Auto-detects the Termius installation directory and fetches the decryption key from the system keyring:
+
 ```bash
-termius-vault-backup extract-local -o ~/termius_backup.tar.gz
+termius-vault-backup extract-local -o termius_backup.tar.gz
 ```
 
-### 2. Extraction using Credentials
+### 2. Manual key specification
+
+If running in a headless environment without an active SecretStorage daemon:
+
 ```bash
-termius-vault-backup extract-local --email "user@example.com" --password "YourSecretPassword" -o ~/termius_backup.tar.gz
+termius-vault-backup extract-local --key "<32_BYTE_BASE64_KEY>" -o termius_backup.tar.gz
 ```
 
-### 3. Extraction with Explicit Master Key
+### 3. Custom storage directory
+
 ```bash
-termius-vault-backup extract-local --key "<32_BYTE_BASE64_OR_HEX_KEY>" -o ~/termius_backup.tar.gz
+termius-vault-backup extract-local --path ~/.var/app/com.termius.Termius/config/Termius -o backup.tar.gz
 ```
 
-### 4. Export from an Existing JSON Dump
+### 4. Convert an existing raw JSON dump
+
 ```bash
-termius-vault-backup export -i /path/to/termius_dump.json -o ~/termius_backup.tar.gz
+termius-vault-backup export -i raw_dump.json -o backup.tar.gz
 ```
 
 ---
 
-## 📦 Output Structure (`.tar.gz`)
+## Archive Layout
+
+Extracted `.tar.gz` archives contain the following hierarchy:
 
 ```text
 termius_backup/
 ├── config/
-│   ├── config                  # Standard ~/.ssh/config
-│   └── hosts.csv               # Summary table of all hosts
+│   ├── config                  # Standard OpenSSH configuration file
+│   └── hosts.csv               # Tabular CSV summary of all hosts
 ├── keys/
-│   ├── YUBIKEY.pem             # Decrypted private key (chmod 600)
-│   ├── RASPBERRY_PI.pem        # Decrypted private key (chmod 600)
-│   └── *.pub                   # Public keys
+│   ├── id_ed25519_prod.pem     # Decrypted private key (chmod 0600)
+│   ├── id_ed25519_prod.pub     # Public key
+│   └── ...
 ├── raw/
-│   ├── hosts.json              # Full hosts metadata
-│   ├── keys.json               # Full keys metadata
-│   ├── snippets.json           # Shell automation scripts
+│   ├── hosts.json              # Decrypted host objects
+│   ├── keys.json               # Decrypted key material and passphrases
+│   ├── snippets.json           # Automation scripts
 │   ├── keychains_identities.json
-│   └── port_forwardings.json
-└── MANIFEST.json               # Backup metadata and validation stats
+│   └── port_forwardings.json   # Local, remote, and dynamic forward rules
+└── MANIFEST.json               # Export metadata and record counts
 ```
 
----
-
-## 🔒 Security & Privacy
-
-This tool runs 100% locally on your machine. No telemetry, no external network calls, and no plain-text credentials are ever transmitted.
-
-## 📄 License
-
-MIT
+> [!NOTE]
+> All extracted private keys inside the archive are written with `chmod 0600` permissions. When extracting on UNIX systems, use `tar -zxpf` to preserve file permissions.
