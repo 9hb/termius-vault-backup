@@ -22,12 +22,11 @@ A standalone Rust utility to decrypt and export Termius local storage databases 
 
 ## Features
 
-- **Direct Storage Decryption**: Reads directly from LevelDB/IndexedDB data files used by Flatpak and native Termius desktop clients.
-- **Keyring Integration**: Automatically retrieves the local secret key from Linux SecretStorage (GNOME Keyring).
-- **OpenSSH Generation**: Produces a valid `~/.ssh/config` mapping host aliases, hostnames, ports, usernames, and identity keys.
-- **Private Key Extraction**: Exports decrypted private keys into standard PEM blocks with restricted UNIX permissions (`0600`).
-- **Comprehensive Metadata**: Extracts snippets, saved tunnels (port forwardings), identities, and host tags into CSV and JSON formats.
-- **Offline & Private**: Operates entirely locally with zero telemetry or network calls.
+- Direct LevelDB/IndexedDB parsing from local Flatpak and native installations
+- Automatic decryption key retrieval from Linux SecretStorage / GNOME Keyring
+- OpenSSH `~/.ssh/config` generation with host aliases, ports, and key mappings
+- Private key export into standard PEM files with `0600` permissions
+- Structured export of snippets, port forwardings, identities, and host tags
 
 ---
 
