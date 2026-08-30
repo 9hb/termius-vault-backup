@@ -68,19 +68,19 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             use_cross: false
-            archive_name: termius-vault-backup-x86_64-linux.tar.gz
+            binary_name: termius-vault-backup-x86_64-linux
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             use_cross: true
-            archive_name: termius-vault-backup-aarch64-linux.tar.gz
+            binary_name: termius-vault-backup-aarch64-linux
           - target: x86_64-apple-darwin
             os: macos-latest
             use_cross: false
-            archive_name: termius-vault-backup-x86_64-macos.tar.gz
+            binary_name: termius-vault-backup-x86_64-macos
           - target: aarch64-apple-darwin
             os: macos-latest
             use_cross: false
-            archive_name: termius-vault-backup-aarch64-macos.tar.gz
+            binary_name: termius-vault-backup-aarch64-macos
     steps:
       - name: checkout code
         uses: actions/checkout@v4
@@ -105,18 +105,17 @@ jobs:
             cargo build --release --target ${{ matrix.target }}
           fi
 
-      - name: package archive
+      - name: prepare direct standalone binary
         run: |
-          mkdir -p package
-          cp target/${{ matrix.target }}/release/termius-vault-backup package/
-          cp README.md Cargo.toml package/ 2>/dev/null || true
-          tar -czvf ${{ matrix.archive_name }} -C package .
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/termius-vault-backup dist/${{ matrix.binary_name }}
+          chmod +x dist/${{ matrix.binary_name }}
 
       - name: upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: ${{ matrix.archive_name }}
+          path: dist/${{ matrix.binary_name }}
 
   publish-release:
     name: publish github release
@@ -135,10 +134,10 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: flatten artifacts
+      - name: flatten binary artifacts
         run: |
           mkdir -p release_files
-          find release-artifacts -type f -name "*.tar.gz" -exec cp {} release_files/ \;
+          find release-artifacts -type f -exec cp {} release_files/ \;
           ls -la release_files
 
       - name: create github release
