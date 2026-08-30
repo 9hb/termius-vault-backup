@@ -29,15 +29,12 @@ jobs:
       - name: determine next semantic version
         id: bump
         run: |
-          # Fetch latest git tag
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           echo "Latest tag: $LATEST_TAG"
           
-          # Strip leading 'v'
           VER_NUM=${LATEST_TAG#v}
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VER_NUM"
           
-          # Increment patch
           PATCH=$((PATCH + 1))
           NEW_VER="${MAJOR}.${MINOR}.${PATCH}"
           NEW_TAG="v${NEW_VER}"
@@ -45,7 +42,6 @@ jobs:
           echo "Next version: $NEW_VER"
           echo "Next tag: $NEW_TAG"
           
-          # Update version in Cargo.toml
           sed -i "s/^version = \".*\"/version = \"$NEW_VER\"/" Cargo.toml
           
           git config user.name "github-actions[bot]"
@@ -78,17 +74,13 @@ jobs:
             use_cross: true
             archive_name: termius-vault-backup-aarch64-linux.tar.gz
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             use_cross: false
             archive_name: termius-vault-backup-x86_64-macos.tar.gz
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-latest
             use_cross: false
             archive_name: termius-vault-backup-aarch64-macos.tar.gz
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            use_cross: false
-            archive_name: termius-vault-backup-x86_64-windows.zip
     steps:
       - name: checkout code
         uses: actions/checkout@v4
@@ -112,25 +104,13 @@ jobs:
           else
             cargo build --release --target ${{ matrix.target }}
           fi
-        shell: bash
 
-      - name: package archive (unix)
-        if: matrix.os != 'windows-latest'
+      - name: package archive
         run: |
           mkdir -p package
           cp target/${{ matrix.target }}/release/termius-vault-backup package/
           cp README.md Cargo.toml package/ 2>/dev/null || true
           tar -czvf ${{ matrix.archive_name }} -C package .
-        shell: bash
-
-      - name: package archive (windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          mkdir package
-          cp target/${{ matrix.target }}/release/termius-vault-backup.exe package/
-          cp README.md Cargo.toml package/
-          Compress-Archive -Path package/* -DestinationPath ${{ matrix.archive_name }}
-        shell: pwsh
 
       - name: upload artifact
         uses: actions/upload-artifact@v4
@@ -158,7 +138,7 @@ jobs:
       - name: flatten artifacts
         run: |
           mkdir -p release_files
-          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release_files/ \;
+          find release-artifacts -type f -name "*.tar.gz" -exec cp {} release_files/ \;
           ls -la release_files
 
       - name: create github release
